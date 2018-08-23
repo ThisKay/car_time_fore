@@ -4,31 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from pylab import mpl
 import h5py
+import pltUtil as pltu
+import fileUtil as fileu
 
 _OUT_DIR = "../out/"
 _DATA_DIR = "../dataset/"
-
-
-def h5open(_file):
-    '''
-    读取h5py文件中的数据
-    '''
-    f = h5py.File(_file, 'r')
-    _data = f['data'][:]
-    f.close()
-    return _data
-
-
-def h5open_dict(_file):
-    '''
-    读取h5py文件中的字典数据并返回
-    '''
-    _dict = {}
-    f = h5py.File(_file, 'r')
-    for k, v in f.items():
-        _dict[k] = v[:]
-    f.close()
-    return _dict
 
 
 def calc_MARE(label, pred):
@@ -57,13 +37,11 @@ def calc_MSE(label, pred):
     return mse
 
 
-def output_compare(f_label, f_pred):
-    '''将输出文件整理成为可直接比对的矩阵：1、reshape形状，2、extend范围
-    '''
+def read_result(f_label, f_pred):
     grid_size = 20
-    split = -360  # -360  # 630
+    split = -108  # -360  # 630
     time_steps = 4  # 4
-    label_data = h5open_dict(
+    label_data = fileu.h5open_dict(
         os.path.join(_DATA_DIR, f_label))['ys'].reshape([-1, time_steps, grid_size, grid_size, 8])
     label_data = label_data[:, -1]  # 取最后一个时间片
     label_data = label_data.reshape([-1, grid_size, grid_size, 8])
@@ -72,15 +50,17 @@ def output_compare(f_label, f_pred):
     label_data_ext[:, :grid_size, -grid_size:, :] = label_data
     label_data = label_data_ext
     label_data = label_data[split:]
-    pred_data = h5open(os.path.join(_OUT_DIR, f_pred)).reshape([-1, grid_size, grid_size, 8])
+    pred_data = fileu.h5open(os.path.join(_OUT_DIR, f_pred)).reshape([-1, grid_size, grid_size, 8])
     pred_data = pred_data[split:]
     pred_data_ext = label_data.copy()
     print(pred_data.shape, label_data.shape)
 
     pred_data_ext[:, : grid_size, -grid_size:, :] = pred_data
     assert pred_data_ext.shape == pred_data_ext.shape, "{},{}".format(label_data.shape, pred_data_ext.shape)
-    # return label_data, pred_data_ext
+    return label_data, pred_data_ext
 
+
+def caculate_Loss(label_data, pred_data_ext):
     MARE_lst = []  # mean absolute releative error
     MSE_lst = []
     for idx in range(pred_data_ext.shape[0]):
@@ -91,18 +71,57 @@ def output_compare(f_label, f_pred):
         MARE_lst.append(mare)
         MSE_lst.append(mse)
         # print("d: %02d,s: %02d,are: %.2f,se: %.2f" % (i + 1, j, mare, mse))
+    return MARE_lst, MSE_lst
 
+
+def load_Loss(_file):
+    eval_dict = fileu.h5open_dict(_file)
+    MARE_lst = eval_dict['MARE_lst']
+    MSE_lst = eval_dict['MSE_lst']
+    return MARE_lst, MSE_lst
+
+
+def output_compare(f_label, f_pred):
+    '''将输出文件整理成为可直接比对的矩阵：1、reshape形状，2、extend范围
+    '''
+    # label_data, pred_data_ext = read_result(f_label, f_pred)
+    # MARE_lst, MSE_lst = caculate_Loss(label_data, pred_data_ext)
+    MARE_lst, MSE_lst = load_Loss('./file1.h5')
+    
     print(np.mean(MARE_lst))
     print(np.mean(MSE_lst))
-    plt.figure(figsize=(18, 6))
+    plt.figure(figsize=(16, 7))
     ax1 = plt.subplot(211)
     ax2 = plt.subplot(212)
-    ax1.set_xticks(np.arange(0, 648, 20))
-    ax2.set_xticks(np.arange(0, 648, 20))
-    ax1.plot(MARE_lst)
-    ax2.plot(MSE_lst)
+    # ax1.set_xticks(np.arange(0, 648, 20))
+    # ax2.set_xticks(np.arange(0, 648, 20))
+    ax1.set_xticks(np.arange(0, 108, 5))
+    ax2.set_xticks(np.arange(0, 108, 5))
+
+    font_label = {'family': 'Times New Roman',
+                  'weight': 'normal',
+                  'size': 20,
+                  }
+    font_title = {'family': 'Times New Roman',
+                  'weight': 'normal',
+                  'size': 24,
+                  }
+    ax1.tick_params(labelsize=14)
+    ax2.tick_params(labelsize=14)
+    # ax2.ticklabel_format(font_label)
+    ax1.set_title("Title", fontdict=font_title)
+    ax1.set_xlabel("slot", font_label)
+    ax1.set_ylabel("Error", font_label)
+    ax2.set_xlabel("slot", font_label)
+    ax2.set_ylabel("Loss(MSE)", font_label)
+    x, y = pltu.make_line_interp(MARE_lst)
+    ax1.plot(x, y, c='k')
+    # ax1.plot(MARE_lst)
+    x, y = pltu.make_line_smooth(MSE_lst)
+    ax2.plot(x, y, c='k')
+    plt.subplots_adjust(hspace=0.3)
     plt.show()
 
 
 if __name__ == '__main__':
-    output_compare(f_label="train_by_day.h5", f_pred="out_by_day_e120.h5")
+    output_compare(f_label="train_by_day.h5", f_pred="out_by_day_e42.h5")
