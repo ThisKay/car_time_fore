@@ -3,6 +3,10 @@ This project is used to Forecast the Trajectory.
 
 
 #### Usage:
+1. Doc
+
+    Download 'Experiment Explain Doc' from here: [Link](https://github.com/ThisKay/car_time_fore/raw/master/assert/LSTM_Experiment_Explain.docx).
+
 1. Dataset
 
     Download dataset from here: [Link](https://pan.baidu.com/s/1C9KhfA2Vq2uzjpwIr7Td-g), And then put it in [dataset] folder.
